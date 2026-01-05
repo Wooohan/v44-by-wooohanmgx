@@ -8,7 +8,11 @@ import PageSettings from './components/Admin/PageSettings';
 import MediaLibrary from './components/Admin/MediaLibrary';
 import SettingsView from './components/Admin/SettingsView';
 import { initFacebookSDK } from './services/facebookService';
-import { Mail, Lock, Loader2, AlertCircle, MessageSquare, Bell, Menu, Download } from 'lucide-react';
+import { Mail, Lock, Loader2, AlertCircle, MessageSquare, Bell, Menu, CheckCircle, XCircle } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 const LoginPage: React.FC = () => {
   const { login } = useApp();
@@ -16,6 +20,29 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [supabaseStatus, setSupabaseStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+
+  useEffect(() => {
+    // Check Supabase connection on mount
+    const checkSupabaseConnection = async () => {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+        const { error } = await supabase.from('users').select('count', { count: 'exact', head: true });
+        
+        if (error) {
+          console.error('Supabase connection error:', error);
+          setSupabaseStatus('error');
+        } else {
+          setSupabaseStatus('connected');
+        }
+      } catch (err) {
+        console.error('Supabase connection failed:', err);
+        setSupabaseStatus('error');
+      }
+    };
+
+    checkSupabaseConnection();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,10 +54,6 @@ const LoginPage: React.FC = () => {
       setError('Invalid email or password. Use your authorized credentials.');
       setIsLoading(false);
     }
-  };
-
-  const handleDownload = () => {
-    window.location.href = '/downloads/messengerflow-project.tar.gz';
   };
 
   return (
@@ -94,16 +117,26 @@ const LoginPage: React.FC = () => {
           </form>
 
           <div className="mt-6 pt-6 border-t border-slate-100">
-            <button
-              onClick={handleDownload}
-              className="w-full py-3 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-3 transform active:scale-[0.98]"
-            >
-              <Download size={18} />
-              Download Project
-            </button>
-            <p className="text-xs text-slate-400 mt-3 font-medium">
-              Deploy MessengerFlow on your own server
-            </p>
+            <div className="flex items-center justify-center gap-3 p-3 bg-slate-50 rounded-2xl">
+              {supabaseStatus === 'checking' && (
+                <>
+                  <Loader2 className="animate-spin text-slate-400" size={16} />
+                  <span className="text-xs font-bold text-slate-500">Checking Supabase...</span>
+                </>
+              )}
+              {supabaseStatus === 'connected' && (
+                <>
+                  <CheckCircle className="text-green-500" size={16} />
+                  <span className="text-xs font-bold text-green-600">Supabase Sync: Connected</span>
+                </>
+              )}
+              {supabaseStatus === 'error' && (
+                <>
+                  <XCircle className="text-red-500" size={16} />
+                  <span className="text-xs font-bold text-red-600">Supabase Sync: Disconnected</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
